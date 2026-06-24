@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Agri-Expert</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <aside class="sidebar">
+            <h2>📍 Region & Time</h2>
+            
+            <label for="state">Select State</label>
+            <select id="state" onchange="updateRegions()">
+                <option value="">-- Choose State --</option>
+                {% for state in states %}
+                <option value="{{ state }}">{{ state }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="region">Select Region</label>
+            <select id="region" onchange="fetchAnalysis()">
+                <option value="">-- Choose Region --</option>
+            </select>
+
+            <label for="month">Select Month</label>
+            <select id="month" onchange="fetchAnalysis()">
+                {% for m in months %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+            </select>
+        </aside>
+
+        <main class="main-content">
+            <h1>🌾 Regional Agricultural Advisor</h1>
+            <div id="info-banner" class="banner">Select a region to view analytical assessments.</div>
+
+            <div class="tables-section">
+                <div class="card table-card">
+                    <h3>✅ Top Crops (By Historical Yield)</h3>
+                    <table id="best-table"><thead><tr><th>Crop</th><th>Avg Yield (Kg/ha)</th></tr></thead><tbody></tbody></table>
+                </div>
+                <div class="card table-card">
+                    <h3>❌ Lowest Yielding Crops</h3>
+                    <table id="worst-table"><thead><tr><th>Crop</th><th>Avg Yield (Kg/ha)</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+
+            <h2>🔍 Scientific Technical Requirements & Advisory</h2>
+            <div id="metrics-grid" class="metrics-grid" style="display:none;">
+                <div class="metric-box"><h4>Suitable Soil Type</h4><p id="soil-type">-</p></div>
+                <div class="metric-box"><h4>Ideal Soil pH</h4><p id="soil-ph">-</p></div>
+                <div class="metric-box"><h4>Temperature Range</h4><p id="temp-range">-</p></div>
+                <div class="metric-box"><h4>Annual Rainfall</h4><p id="rainfall">-</p></div>
+                <div class="metric-box highlight-box"><h4>Nutrient Requirements (NPK)</h4><p id="npk">-</p></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function updateRegions() {
+            let state = document.getElementById('state').value;
+            fetch('/get_regions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({state: state})
+            })
+            .then(res => res.json())
+            .then(data => {
+                let rSelect = document.getElementById('region');
+                rSelect.innerHTML = '<option value="">-- Choose Region --</option>';
+                data.regions.forEach(r => {
+                    rSelect.innerHTML += `<option value="${r}">${r}</option>`;
+                });
+            });
+        }
+
+        function fetchAnalysis() {
+            let state = document.getElementById('state').value;
+            let region = document.getElementById('region').value;
+            let month = document.getElementById('month').value;
+
+            if(!state || !region) return;
+
+            fetch('/get_analysis', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({state: state, region: region, month: month})
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('info-banner').innerText = `Analysis for ${region}, ${state} | Current Season: ${data.season}`;
+                
+                // Populate Tables
+                let bBody = document.querySelector('#best-table tbody');
+                bBody.innerHTML = data.best_5.map(c => `<tr><td>${c.crop}</td><td>${c.yield}</td></tr>`).join('');
+                
+                let wBody = document.querySelector('#worst-table tbody');
+                wBody.innerHTML = data.worst_5.map(c => `<tr><td>${c.crop}</td><td>${c.yield}</td></tr>`).join('');
+
+                // Populate Technical Metrics
+                if(data.tech_info) {
+                    document.getElementById('metrics-grid').style.display = 'grid';
+                    document.getElementById('soil-type').innerText = data.tech_info['Suitable Soil Type'];
+                    document.getElementById('soil-ph').innerText = data.tech_info['Soil pH'];
+                    document.getElementById('temp-range').innerText = data.tech_info['Temperature Range'];
+                    document.getElementById('rainfall').innerText = data.tech_info['Rainfall (mm/year)'];
+                    document.getElementById('npk').innerText = data.tech_info['NPK Requirement (kg/ha)'];
+                }
+            });
+        }
+    </script>
+</body>
+</html>
